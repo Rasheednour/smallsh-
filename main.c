@@ -2,6 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+void exitShell()
+{
+
+}
+
+void changeDirectory()
+{
+
+}
+
+void status()
+{
+    
+}
+
 
 void commandPrompt()
 {
