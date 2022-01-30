@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void exitShell()
 {
@@ -9,7 +10,9 @@ void exitShell()
 
 void changeDirectory()
 {
-
+    char *home = getenv("HOME");
+    chdir(home);
+    printf("Changed directory to %s\n", home);
 }
 
 void status()
@@ -17,6 +20,10 @@ void status()
 
 }
 
+void tokenizer()
+{
+
+}
 
 void commandPrompt()
 {
@@ -31,9 +38,19 @@ void commandPrompt()
             exitShell();
             break;
         }
-        else if ((strcmp(command, "") == 0) || (command[0] == '#'))
+        else if ((strcmp(command, "") == 0) || (command[0] == '#')) // fix multiple spaces
         {
             continue;
+        }
+        else if (strcmp(command, "pwd") == 0)
+        {
+            char path[255];
+            getcwd(path, sizeof(path));
+            printf("Current working directory is %s\n", path);
+        }
+        else if (strcmp(command, "cd") == 0)
+        {
+            changeDirectory();
         }
         else
         {
