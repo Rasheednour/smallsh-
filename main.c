@@ -35,11 +35,16 @@ char *removeSpaces(char *command)
     return command;
 }
 
-void changeDirectory()
+void homeDirectory()
 {
     char *home = getenv("HOME");
     chdir(home);
     printf("Changed directory to %s\n", home);
+}
+
+void changeDirectory()
+{
+    printf("Now changing directory\n");
 }
 
 void status()
@@ -80,6 +85,10 @@ void commandPrompt()
             printf("Current working directory is %s\n", path);
         }
         else if (strcmp(newCommand, "cd") == 0)
+        {
+            homeDirectory();
+        }
+        else if (strncmp(newCommand, "cd ", 3) == 0)
         {
             changeDirectory();
         }
