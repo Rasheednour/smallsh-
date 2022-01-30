@@ -4,7 +4,7 @@
 
 void exitShell()
 {
-
+    printf("Ending processes and exiting shell\n");
 }
 
 void changeDirectory()
@@ -14,7 +14,7 @@ void changeDirectory()
 
 void status()
 {
-    
+
 }
 
 
@@ -28,9 +28,18 @@ void commandPrompt()
         command[strlen(command) - 1] = 0;
         if (strcmp(command, "exit") == 0)
         {
+            exitShell();
             break;
         }
+        else if ((strcmp(command, "") == 0) || (command[0] == '#'))
+        {
+            continue;
+        }
+        else
+        {
         printf("You entered: %s\n", command);
+        }
+        
     }
 
 }
