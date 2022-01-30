@@ -3,6 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+
 
 void exitShell()
 {
@@ -42,9 +45,30 @@ void homeDirectory()
     printf("Changed directory to %s\n", home);
 }
 
-void changeDirectory()
+void changeDirectory(char *path) // dont change directories if any of them is invalid
 {
     printf("Now changing directory\n");
+
+    char *ptr;
+    // first token is cd
+    char *token = strtok_r(path, " /", &ptr);
+    // second token is start of path
+    token = strtok_r(NULL, " /", &ptr);
+    
+    while (token != NULL)
+    {
+        DIR* dir = opendir(token);
+
+        if (dir) {
+            closedir(dir);
+            chdir(token);
+            token = strtok_r(NULL, " /", &ptr);
+        }
+        else
+        {   
+            break;
+        }
+    }
 }
 
 void status()
@@ -90,7 +114,7 @@ void commandPrompt()
         }
         else if (strncmp(newCommand, "cd ", 3) == 0)
         {
-            changeDirectory();
+            changeDirectory(newCommand);
         }
         else
         {
