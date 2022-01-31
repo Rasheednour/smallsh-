@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/types.h>
 
 
 void exitShell()
@@ -45,6 +46,11 @@ void homeDirectory()
     printf("Changed directory to %s\n", home);
 }
 
+void executeCommand()
+{
+
+}
+
 void changeDirectory(char *path) // dont change directories if any of them is invalid
 {
     printf("Now changing directory\n");
@@ -54,7 +60,7 @@ void changeDirectory(char *path) // dont change directories if any of them is in
     char *token = strtok_r(path, " /", &ptr);
     // second token is start of path
     token = strtok_r(NULL, " /", &ptr);
-    
+
     while (token != NULL)
     {
         DIR* dir = opendir(token);
@@ -71,9 +77,9 @@ void changeDirectory(char *path) // dont change directories if any of them is in
     }
 }
 
-void status()
+int updateStatus(int statusCode)
 {
-
+    printf("exit value %d\n", statusCode);
 }
 
 void tokenizer()
@@ -83,6 +89,9 @@ void tokenizer()
 
 void commandPrompt()
 {
+    int statusCode = 0;
+    updateStatus(statusCode);
+
     while(1)
     {
         char command[2048];
@@ -115,6 +124,18 @@ void commandPrompt()
         else if (strncmp(newCommand, "cd ", 3) == 0)
         {
             changeDirectory(newCommand);
+        }
+        else if (strncmp(newCommand, "status", 6) == 0)
+        {
+            status();
+        }
+        else if (strcmp(newCommand, "pid") == 0)
+        {
+            printf("My pid is %d\n", getpid());
+        }
+        else if (strcmp(newCommand, "ppid") == 0)
+        {
+            printf("My parent's pid is %d\n", getppid());
         }
         else
         {
