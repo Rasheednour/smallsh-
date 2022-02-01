@@ -8,6 +8,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+
+// FIX & SIGN AT END OF BUILT IN FUNCTIONS
+// FIX CD WHEN ONE OF THE FILES IN PATH DOES NOT EXIST
+// UPDATE white space stripper to remove extra spaces between command and arguments
+// IMPLEMENT A TOKENIZER TO RETURN A LIST OF COMMAND AND ITS ARGUMENTS along with & if exists
 void exitShell()
 {
     printf("Ending processes and exiting shell\n");
