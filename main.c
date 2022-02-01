@@ -6,7 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/types.h>
-
+#include <sys/wait.h>
 
 void exitShell()
 {
@@ -41,14 +41,54 @@ char *removeSpaces(char *command)
 
 void homeDirectory()
 {
+    printf("sleeping for 5 seconds..\n");
+    sleep(5);
     char *home = getenv("HOME");
     chdir(home);
     printf("Changed directory to %s\n", home);
 }
 
-void executeCommand()
+void printPath()
 {
+    char *path = getenv("PATH");
+    printf("The path is: %s\n", path);
+}
 
+int executeCommand(char *command)
+{
+    // printf("Command is: %s\n", command);
+    printf("parent PID is: %d\n", getpid());
+    printf("forking child..\n");
+
+    pid_t spawnPid = -5;
+    int childExitStatus = -5;
+
+    spawnPid = fork();
+
+    switch (spawnPid) {
+        case -1: { perror("Fork unsuccessful!\n"); exit(1); break; }
+        case 0: {
+            printf("New child forked with pid %d and parnet's pid is %d\n", getpid(), getppid());
+            sleep(1);
+            printf("Child with pid %d now executing command: %s\n", getpid(), command);
+            sleep(2);
+            execlp(command, command, NULL);
+            perror("child exec failure!\n");
+            exit(2); break;
+        }
+        default: {
+            printf("parent with pid %d now sleeping for 2 secs\n", getpid());
+            sleep(2);
+            printf("parent with pid %d now waiting for child with pid %d to terminate\n", getpid(), spawnPid);
+            pid_t actualPid = waitpid(spawnPid, &childExitStatus, 0);
+            printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
+            exit(0); break;
+        }
+    }
+
+    fork();
+
+    
 }
 
 void changeDirectory(char *path) // dont change directories if any of them is invalid
@@ -77,12 +117,12 @@ void changeDirectory(char *path) // dont change directories if any of them is in
     }
 }
 
-int updateStatus(int statusCode)
+void updateStatus(int statusCode)
 {
     printf("exit value %d\n", statusCode);
 }
 
-void tokenizer()
+void commandTokenizer()
 {
 
 }
@@ -102,7 +142,7 @@ void commandPrompt()
         // remove trailing and leading spaces 
         char *newCommand = removeSpaces(command);
 
-        if (strcmp(newCommand, "exit") == 0)
+        if (strncmp(newCommand, "exit", 4) == 0)
         {
             exitShell();
             break;
@@ -127,7 +167,7 @@ void commandPrompt()
         }
         else if (strncmp(newCommand, "status", 6) == 0)
         {
-            status();
+            updateStatus(0);
         }
         else if (strcmp(newCommand, "pid") == 0)
         {
@@ -137,9 +177,13 @@ void commandPrompt()
         {
             printf("My parent's pid is %d\n", getppid());
         }
+        else if (strcmp(newCommand, "path") == 0)
+        {
+            printPath();
+        }
         else
         {
-        printf("You entered: %s\n", newCommand);
+            executeCommand(newCommand);
         }
         
     }
