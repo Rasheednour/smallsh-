@@ -100,6 +100,8 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
     // printf("Command is: %s\n", command);
     printf("parent PID is: %d\n", getpid());
     printf("backgorund process number: %d\n", bgList->pid);
+    printf("execMode is: %d\n", execMode);
+    printf("command is: %s\n", command);
     // printf("forking child..\n");
 
     // pid_t spawnPid = -5;
@@ -234,6 +236,8 @@ void commandPrompt()
             const char *lastTwo = &newCommand[len - 2];
             if (strcmp(lastTwo, " &") == 0)
             {
+                // remove the & from string as we don't need it anymore
+                newCommand[strlen(newCommand) - 2] = '\0';
                 execMode = 1;
             }
             else
@@ -256,6 +260,10 @@ void commandPrompt()
         {
             homeDirectory();
         }
+        // else if (strcmp(newCommand, "cd ") == 0)
+        // {
+        //     homeDirectory();
+        // }
         else if (strncmp(newCommand, "cd ", 3) == 0)
         {
             changeDirectory(newCommand);
