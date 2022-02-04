@@ -30,11 +30,11 @@ struct parsedCommand
 {
     char *command;
     char **args;
-    char *count;
-    char inOut[1];
-    char *file1;
-    char out[1];
-    char *file2;
+    int count;
+    char *inOut;
+    char *inOutFile;
+    char *out;
+    char *outFile;
 };
 
 void exitShell()
@@ -99,6 +99,67 @@ void storeBgProcess(struct backgroundPID *bgList)
     // add new background PID to the tail of linked lists of background processes
 }
 
+void tokenizer(char *command)
+{
+    struct parsedCommand commandLine;
+    char *args[512];
+    char *ptr;
+    
+    // get command
+    char *token = strtok_r(command, " ", &ptr);
+    commandLine.command = token;
+    commandLine.count = 0;
+    char *empty = "-";
+    commandLine.inOut = empty;
+    commandLine.out = empty;
+
+    while (token != NULL)
+    {
+        if ((strcmp(token, ">") == 0) || (strcmp(token, "<") == 0))
+        {
+            if (strcmp(commandLine.inOut, "-") == 0)
+            {
+                commandLine.inOut = token;
+                commandLine.inOutFile = strtok_r(NULL, " ", &ptr);
+            }
+            else
+            {
+                if (strcmp(commandLine.out, "-") == 0)
+                {
+                    commandLine.out = token;
+                    commandLine.outFile = strtok_r(NULL, " ", &ptr);
+                }
+            }
+        }
+        else
+        {
+            args[commandLine.count++] = token;
+        }
+        
+        
+        token = strtok_r(NULL, " ", &ptr);
+    }
+
+    commandLine.args = malloc(commandLine.count * sizeof *commandLine.args);
+    memcpy(commandLine.args, args, commandLine.count * sizeof *commandLine.args);
+
+    printf("command is: %s\n", commandLine.command);
+    printf("args are: \n");
+    for (int i = 0; i < commandLine.count; ++i)
+    {
+        printf("%s ", commandLine.args[i]);
+    }
+    printf("\n");
+    printf("arg count is: %d\n", commandLine.count);
+    printf("inOut is: %s\n", commandLine.inOut);
+    printf("inOutFile is: %s\n", commandLine.inOutFile);
+    printf("out is: %s\n", commandLine.out);
+    printf("outfile is: %s\n", commandLine.outFile);
+
+    free(commandLine.args);
+
+}
+
 void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList)
 {
     // printf("Command is: %s\n", command);
@@ -106,6 +167,13 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
     printf("backgorund process number: %d\n", bgList->pid);
     printf("execMode is: %d\n", execMode);
     printf("command is: %s\n", command);
+    printf("\n");
+    tokenizer(command);
+
+    // struct parsedCommand commandLine = tokenizer(command);
+
+
+
     // printf("forking child..\n");
 
     // pid_t spawnPid = -5;
@@ -179,10 +247,6 @@ void changeDirectory(char *path) // dont change directories if any of them is in
 }
 
 
-void tokenizer(char *command)
-{
-
-}
 
 void commandPrompt()
 {
