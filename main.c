@@ -31,6 +31,10 @@ struct parsedCommand
     char *command;
     char **args;
     char *count;
+    char inOut[1];
+    char *file1;
+    char out[1];
+    char *file2;
 };
 
 void exitShell()
@@ -221,6 +225,7 @@ void commandPrompt()
         // remove new line at the end of user input
         command[strlen(command) - 1] = 0;
 
+    // --------------------check signal for foreground mode only-------------
     //--------------remove trailing and leading spaces from command-----------
 
         // call function to remove the leading and trailing empty space -if exit- in the user entered command
@@ -228,7 +233,7 @@ void commandPrompt()
         char *newCommand = removeSpaces(command);
 
     //--------------------------------Set execution mode--------------------------------------------
-        //*****check for empty inputs
+
         // check if last letters in command is " &"
         int len = strlen(newCommand);
         if (len > 1)
@@ -245,7 +250,9 @@ void commandPrompt()
                 execMode = 0;
             }
         }
+
     //----------------------------------------------------------------------------------------------
+
         if (strncmp(newCommand, "exit", 4) == 0)
         {
             exitShell();
@@ -260,10 +267,7 @@ void commandPrompt()
         {
             homeDirectory();
         }
-        // else if (strcmp(newCommand, "cd ") == 0)
-        // {
-        //     homeDirectory();
-        // }
+
         else if (strncmp(newCommand, "cd ", 3) == 0)
         {
             changeDirectory(newCommand);
