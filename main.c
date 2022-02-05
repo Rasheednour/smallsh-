@@ -99,7 +99,7 @@ void storeBgProcess(struct backgroundPID *bgList)
     // add new background PID to the tail of linked lists of background processes
 }
 
-void tokenizer(char *command)
+struct parsedCommand tokenizer(char *command)
 {
     struct parsedCommand commandLine;
     char *args[512];
@@ -136,72 +136,74 @@ void tokenizer(char *command)
             args[commandLine.count++] = token;
         }
         
-        
         token = strtok_r(NULL, " ", &ptr);
     }
+
+    args[commandLine.count++] = NULL;
 
     commandLine.args = malloc(commandLine.count * sizeof *commandLine.args);
     memcpy(commandLine.args, args, commandLine.count * sizeof *commandLine.args);
 
-    printf("command is: %s\n", commandLine.command);
-    printf("args are: \n");
-    for (int i = 0; i < commandLine.count; ++i)
-    {
-        printf("%s ", commandLine.args[i]);
-    }
-    printf("\n");
-    printf("arg count is: %d\n", commandLine.count);
-    printf("inOut is: %s\n", commandLine.inOut);
-    printf("inOutFile is: %s\n", commandLine.inOutFile);
-    printf("out is: %s\n", commandLine.out);
-    printf("outfile is: %s\n", commandLine.outFile);
+    // printf("command is: %s\n", commandLine.command);
+    // printf("args are: \n");
+    // for (int i = 0; i < commandLine.count; ++i)
+    // {
+    //     printf("%s ", commandLine.args[i]);
+    // }
 
-    free(commandLine.args);
 
+    return commandLine;
+    
 }
 
 void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList)
 {
-    // printf("Command is: %s\n", command);
     printf("parent PID is: %d\n", getpid());
     printf("backgorund process number: %d\n", bgList->pid);
     printf("execMode is: %d\n", execMode);
     printf("command is: %s\n", command);
     printf("\n");
-    tokenizer(command);
+    struct parsedCommand commandLine = tokenizer(command);
 
-    // struct parsedCommand commandLine = tokenizer(command);
+    // printf("\n");
+    // printf("arg count is: %d\n", commandLine.count);
+    // printf("inOut is: %s\n", commandLine.inOut);
+    // printf("inOutFile is: %s\n", commandLine.inOutFile);
+    // printf("out is: %s\n", commandLine.out);
+    // printf("outfile is: %s\n", commandLine.outFile);
 
 
 
-    // printf("forking child..\n");
+    printf("forking child..\n");
 
-    // pid_t spawnPid = -5;
-    // int childExitStatus = -5;
+    pid_t spawnPid = -5;
+    int childExitStatus = -5;
 
-    // spawnPid = fork();
+    spawnPid = fork();
 
-    // switch (spawnPid) {
-    //     case -1: { perror("Fork unsuccessful!\n"); exit(1); break; }
-    //     case 0: {
-    //         printf("New child forked with pid %d and parnet's pid is %d\n", getpid(), getppid());
-    //         sleep(1);
-    //         printf("Child with pid %d now executing command: %s\n", getpid(), command);
-    //         sleep(2);
-    //         execlp(command, command, NULL);
-    //         perror("child exec failure!\n");
-    //         exit(2); break;
-    //     }
-    //     default: {
-    //         printf("parent with pid %d now sleeping for 2 secs\n", getpid());
-    //         sleep(2);
-    //         printf("parent with pid %d now waiting for child with pid %d to terminate\n", getpid(), spawnPid);
-    //         pid_t actualPid = waitpid(spawnPid, &childExitStatus, 0);
-    //         printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
-    //         exit(0); break;
-    //     }
-    // }
+    switch (spawnPid) {
+        case -1: { perror("Fork unsuccessful!\n"); exit(1); break; }
+        case 0: {
+            printf("New child forked with pid %d and parnet's pid is %d\n", getpid(), getppid());
+            // sleep(1);
+            printf("Child with pid %d now executing command: %s\n", getpid(), commandLine.command);
+            sleep(3);
+            execvp(commandLine.command, commandLine.args);
+            perror("child exec failure!\n");
+            exit(2); break;
+        }
+        default: {
+            // printf("parent with pid %d now sleeping for 2 secs\n", getpid());
+            sleep(1);
+            printf("parent with pid %d now waiting for child with pid %d to terminate\n", getpid(), spawnPid);
+            pid_t actualPid = waitpid(spawnPid, &childExitStatus, 0);
+            printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
+            // exit(0); break;
+            break;
+        }
+    }
 
+    free(commandLine.args);
 
 
     // get main command
