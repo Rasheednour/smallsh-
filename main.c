@@ -16,7 +16,7 @@
 
 struct backgroundPID
 {
-    int pid;
+    pid_t pid;
     struct backgroundPID *next;
 };
 
@@ -37,10 +37,17 @@ struct parsedCommand
     char *outFile;
 };
 
-void exitShell()
+void exitShell(struct backgroundPID *bgList)
 {
     // take an array of pids for background processes and kill them
     printf("Ending processes and exiting shell\n");
+    struct backgroundPID *tmp;
+    while (bgList != NULL)
+    {
+        tmp = bgList;
+        bgList = bgList->next;
+        free(tmp);
+    }
 }
 
 char *removeSpaces(char *command)
@@ -84,19 +91,33 @@ void printPath()
     printf("The path is: %s\n", path);
 }
 
-void executeVP(char** commandList)
-{
-    // execute parsed list of command and arguments
-}
 
-void executeLP(char *command)
-{
-    // execute a single command
-}
 
-void storeBgProcess(struct backgroundPID *bgList)
+void storeBgProcess(struct backgroundPID *bgList, pid_t bgPid)
 {
     // add new background PID to the tail of linked lists of background processes
+
+
+    if (bgList->pid == -1)
+    {
+        bgList->pid = bgPid;
+    }
+    else
+    {
+        struct backgroundPID *pidNode = malloc(sizeof(struct backgroundPID));
+        pidNode->pid = bgPid;
+        pidNode->next = NULL;
+
+        while (bgList != NULL)
+        {
+            if (bgList->next == NULL)
+            {
+                bgList->next = pidNode;
+                break;
+            }
+            bgList = bgList->next;
+        }
+    }
 }
 
 struct parsedCommand tokenizer(char *command)
@@ -133,7 +154,35 @@ struct parsedCommand tokenizer(char *command)
         }
         else
         {
-            args[commandLine.count++] = token;
+            if (strcmp(token, "$$") == 0)
+            {
+                int shellPID = getpid();
+                char strPID[6];
+                sprintf(strPID, "%d", shellPID);
+                args[commandLine.count++] = strPID;
+
+            }
+            else if(strstr(token, "$$"))
+            {
+                char *newToken = token;
+                char *nptr;
+                token = strtok_r(NULL, " ", &ptr);
+                char *newStr = strtok_r(newToken, "$$", &nptr);
+                char finalStr[255];
+                strcpy(finalStr, newStr);
+                int shellPID = getpid();
+                char strPID[6];
+                sprintf(strPID, "%d", shellPID);
+                strcat(finalStr, strPID);
+                printf("newStr is: %s\n", finalStr);
+
+
+                args[commandLine.count++] = finalStr;
+            }
+            else
+            {
+                args[commandLine.count++] = token;
+            }
         }
         
         token = strtok_r(NULL, " ", &ptr);
@@ -156,13 +205,41 @@ struct parsedCommand tokenizer(char *command)
     
 }
 
+void checkBgProcesses(struct backgroundPID *bgList)
+{
+    if (bgList->pid != -1)
+    {
+        while (bgList != NULL)
+        {
+            int childExitStatus = -5;
+            pid_t childPid = bgList->pid;
+            // consider actualPid = waitpid(..) and check when actualPid returns childPid then check exit status
+            waitpid(childPid, &childExitStatus, WNOHANG);
+            if (WIFEXITED(childExitStatus))
+            {
+                printf("background pid %d is done: exit value %d\n", childPid, WEXITSTATUS(childExitStatus));
+                fflush(stdout);
+                bgList->pid = -1;
+            }
+            // else
+            // {
+            //     printf("background pid %d is done: terminated by signal %d\n", childPid, WTERMSIG(childExitStatus));
+            //     fflush(stdout);
+            //     bgList->pid = -1;
+            // }
+            bgList = bgList->next;
+
+        }
+    }
+}
+
 void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList)
 {
-    printf("parent PID is: %d\n", getpid());
-    printf("backgorund process number: %d\n", bgList->pid);
-    printf("execMode is: %d\n", execMode);
-    printf("command is: %s\n", command);
-    printf("\n");
+    // printf("parent PID is: %d\n", getpid());
+    // printf("backgorund process number: %d\n", bgList->pid);
+    // printf("execMode is: %d\n", execMode);
+    // printf("command is: %s\n", command);
+    // printf("\n");
     struct parsedCommand commandLine = tokenizer(command);
 
     // printf("\n");
@@ -174,32 +251,69 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
 
 
 
-    printf("forking child..\n");
+    // printf("forking child..\n");
 
-    pid_t spawnPid = -5;
+    pid_t childPid = -5;
     int childExitStatus = -5;
 
-    spawnPid = fork();
+    childPid = fork();
 
-    switch (spawnPid) {
+    switch (childPid) {
         case -1: { perror("Fork unsuccessful!\n"); exit(1); break; }
         case 0: {
-            printf("New child forked with pid %d and parnet's pid is %d\n", getpid(), getppid());
+            // printf("New child forked with pid %d and parnet's pid is %d\n", getpid(), getppid());
             // sleep(1);
-            printf("Child with pid %d now executing command: %s\n", getpid(), commandLine.command);
-            sleep(3);
+            // printf("Child with pid %d now executing command: %s\n", getpid(), commandLine.command);
+            // sleep(3);
             execvp(commandLine.command, commandLine.args);
-            perror("child exec failure!\n");
-            exit(2); break;
+            printf("child exec failure!\n");
+            fflush(stdout);
+            exit(2);
+            break;
         }
         default: {
             // printf("parent with pid %d now sleeping for 2 secs\n", getpid());
-            sleep(1);
-            printf("parent with pid %d now waiting for child with pid %d to terminate\n", getpid(), spawnPid);
-            pid_t actualPid = waitpid(spawnPid, &childExitStatus, 0);
-            printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
-            // exit(0); break;
-            break;
+            // execute foreground processes 
+            if (execMode == 0)
+            {
+                // sleep(1);
+                // printf("parent with pid %d now waiting for child with pid %d to terminate\n", getpid(), childPid);
+                // check for signal here***
+                waitpid(childPid, &childExitStatus, 0);
+                // printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
+                // get foreground process exit status and save it in the struct
+                if (WIFEXITED(childExitStatus))
+                {
+                    char *msg;
+                    msg = "exit value";
+                    exitStatus->message = msg;
+                    exitStatus->code = WEXITSTATUS(childExitStatus);
+
+                }
+                else // add signal here
+                {
+                    char *msg;
+                    msg = "terminated by signal";
+                    exitStatus->message = msg;
+                    exitStatus->code = WTERMSIG(childExitStatus);
+                }
+            
+                // exit(0); break;
+                break;
+            }
+            // execute background process
+            else 
+            {
+                printf("background pid is %d\n", childPid);
+                fflush(stdout);
+                waitpid(childPid, &childExitStatus, WNOHANG);
+                storeBgProcess(bgList, childPid);
+                // exit(0); break;
+                break;
+            }
+
+
+            
         }
     }
 
@@ -284,6 +398,9 @@ void commandPrompt()
     //---------------------show prompt and get user input---------------------
 
         // background processes must be checked here before user is handed control
+        checkBgProcesses(bgList);
+        fflush(stdout);
+
         char command[2048];
         printf(": ");
         // get user input
@@ -321,7 +438,7 @@ void commandPrompt()
 
         if (strncmp(newCommand, "exit", 4) == 0)
         {
-            exitShell();
+            exitShell(bgList);
             break;
         }
         else if ((strcmp(newCommand, "") == 0) || (newCommand[0] == '#')) 
