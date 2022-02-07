@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 
 // FIX & SIGN AT END OF BUILT IN FUNCTIONS
@@ -40,7 +41,7 @@ struct parsedCommand
 void exitShell(struct backgroundPID *bgList)
 {
     // take an array of pids for background processes and kill them
-    printf("Ending processes and exiting shell\n");
+    // printf("Ending processes and exiting shell\n");
     struct backgroundPID *tmp;
     while (bgList != NULL)
     {
@@ -78,11 +79,10 @@ char *removeSpaces(char *command)
 
 void homeDirectory()
 {
-    printf("sleeping for 5 seconds..\n");
-    sleep(5);
+    // sleep(5);
     char *home = getenv("HOME");
     chdir(home);
-    printf("Changed directory to %s\n", home);
+    // printf("Changed directory to %s\n", home);
 }
 
 void printPath()
@@ -233,6 +233,43 @@ void checkBgProcesses(struct backgroundPID *bgList)
     }
 }
 
+void redirectInput(char *fileName)
+{
+    int sourceFD = open(fileName, O_RDONLY);
+    if (sourceFD == -1)
+    {
+        printf("cannot open %s for input\n", fileName);
+        fflush(stdout);
+        exit(1);
+    }
+    int result = dup2(sourceFD, 0);
+    if (result == -1)
+    {
+        printf("stdin redirection failed\n");
+        fflush(stdout);
+        exit(1);
+    }
+}
+
+void redirectOutput(char *fileName)
+{
+    int targetFD = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (targetFD == -1)
+    {
+        printf("cannot open %s for output\n", fileName);
+        fflush(stdout);
+        exit(1);
+    }
+    int result = dup2(targetFD, 1);
+    if (result == -1)
+    {
+        printf("stdout redirection failed\n");
+        fflush(stdout);
+        exit(1);
+    }
+}
+
+
 void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList)
 {
     // printf("parent PID is: %d\n", getpid());
@@ -265,8 +302,28 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             // sleep(1);
             // printf("Child with pid %d now executing command: %s\n", getpid(), commandLine.command);
             // sleep(3);
+            // check input redirection here
+            if (strcmp(commandLine.inOut, "-") != 0)
+            {
+                if (strcmp(commandLine.inOut, "<") == 0)
+                {
+                    // redirect stdin to commandLine.inOutFile
+                    redirectInput(commandLine.inOutFile);
+                }
+                else
+                {
+                    // redirect stdout to commandLine->outFile
+                    redirectOutput(commandLine.inOutFile);
+                }
+            }
+
+            if (strcmp(commandLine.out, ">") == 0)
+            {
+                redirectOutput(commandLine.outFile);
+            }
+
             execvp(commandLine.command, commandLine.args);
-            printf("child exec failure!\n");
+            printf("%s: command not found\n", commandLine.command);
             fflush(stdout);
             exit(2);
             break;
@@ -326,19 +383,9 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
     
 }
 
-void openInputFile()
-{
-
-}
-
-void openOutputFile()
-{
-
-}
 
 void changeDirectory(char *path) // dont change directories if any of them is invalid
 {
-    printf("Now changing directory\n");
 
     char *ptr;
     // first token is cd
