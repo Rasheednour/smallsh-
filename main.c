@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 
 // FIX & SIGN AT END OF BUILT IN FUNCTIONS
@@ -37,6 +38,18 @@ struct parsedCommand
     char *out;
     char *outFile;
 };
+
+void handle_SIGINT(int signo)
+{
+    char *message = "Caught SIGINT, sleeping for 10 seconds\n";
+    write(STDOUT_FILENO, message, 39);
+    sleep(10);
+}
+
+void handle_SIGTSTP(int signo)
+{
+
+}
 
 void exitShell(struct backgroundPID *bgList)
 {
@@ -98,7 +111,7 @@ void storeBgProcess(struct backgroundPID *bgList, pid_t bgPid)
     // add new background PID to the tail of linked lists of background processes
 
 
-    if (bgList->pid == -1)
+    if (bgList->pid == -5)
     {
         bgList->pid = bgPid;
     }
@@ -207,26 +220,26 @@ struct parsedCommand tokenizer(char *command)
 
 void checkBgProcesses(struct backgroundPID *bgList)
 {
-    if (bgList->pid != -1)
+    if (bgList->pid != -5)
     {
         while (bgList != NULL)
         {
             int childExitStatus = -5;
             pid_t childPid = bgList->pid;
             // consider actualPid = waitpid(..) and check when actualPid returns childPid then check exit status
-            waitpid(childPid, &childExitStatus, WNOHANG);
+            pid_t actualPid = waitpid(childPid, &childExitStatus, WNOHANG);
             if (WIFEXITED(childExitStatus))
             {
                 printf("background pid %d is done: exit value %d\n", childPid, WEXITSTATUS(childExitStatus));
                 fflush(stdout);
-                bgList->pid = -1;
+                bgList->pid = -5;
             }
-            // else
-            // {
-            //     printf("background pid %d is done: terminated by signal %d\n", childPid, WTERMSIG(childExitStatus));
-            //     fflush(stdout);
-            //     bgList->pid = -1;
-            // }
+            else if (actualPid == -1) //RECHECK PROPER OUTPUT
+            {
+                printf("background pid %d is done: terminated by signal %d\n", childPid, WTERMSIG(childExitStatus));
+                fflush(stdout);
+                bgList->pid = -5;
+            }
             bgList = bgList->next;
 
         }
@@ -270,7 +283,7 @@ void redirectOutput(char *fileName)
 }
 
 
-void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList)
+void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList, struct sigaction ignore_action)
 {
     // printf("parent PID is: %d\n", getpid());
     // printf("backgorund process number: %d\n", bgList->pid);
@@ -303,6 +316,13 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             // printf("Child with pid %d now executing command: %s\n", getpid(), commandLine.command);
             // sleep(3);
             // check input redirection here
+            // add signal handler here
+            if (execMode == 0)
+            {
+                ignore_action.sa_handler = SIG_DFL;
+                sigaction(SIGINT, &ignore_action, NULL);
+            }
+            
             if (strcmp(commandLine.inOut, "-") != 0)
             {
                 if (strcmp(commandLine.inOut, "<") == 0)
@@ -339,6 +359,7 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
                 waitpid(childPid, &childExitStatus, 0);
                 // printf("parent with pid %d: child with pid %d terminated, now exiting!\n", getpid(), actualPid);
                 // get foreground process exit status and save it in the struct
+                //CHECK FOR TERMINATING SIGNALS HERE
                 if (WIFEXITED(childExitStatus))
                 {
                     char *msg;
@@ -353,6 +374,8 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
                     msg = "terminated by signal";
                     exitStatus->message = msg;
                     exitStatus->code = WTERMSIG(childExitStatus);
+                    printf("terminated by signal %d\n", exitStatus->code);
+                    fflush(stdout);
                 }
             
                 // exit(0); break;
@@ -414,6 +437,18 @@ void changeDirectory(char *path) // dont change directories if any of them is in
 void commandPrompt()
 {
 
+//----------------------Implement a signal handler for SIGINT--------------
+    struct sigaction SIGINT_action = {{0}};
+    struct sigaction ignore_action = {{0}};
+
+    SIGINT_action.sa_handler = handle_SIGINT;
+    sigfillset(&SIGINT_action.sa_mask);
+    SIGINT_action.sa_flags = 0;
+
+    ignore_action.sa_handler = SIG_IGN;
+
+    sigaction(SIGINT, &ignore_action, NULL);
+
 //----------------------Initiate struct to track execution status--------------
 
     // initiate statusCode struct and set its message to "exit value 0"
@@ -429,7 +464,7 @@ void commandPrompt()
 //----------------------Initiate a struct to store background PIDs--------
 
     struct backgroundPID *bgList = malloc(sizeof(struct backgroundPID));
-    bgList->pid = -1;
+    bgList->pid = -5;
     bgList->next = NULL;
 
 //----------------------Initiate a variable to store execution mode--------
@@ -509,7 +544,7 @@ void commandPrompt()
 
         else
         {
-            executeCommand(newCommand, execMode, exitStatus, bgList);
+            executeCommand(newCommand, execMode, exitStatus, bgList, ignore_action);
         }
         
     }
