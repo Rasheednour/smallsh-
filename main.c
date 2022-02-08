@@ -100,24 +100,16 @@ void handle_SIGTSTP(int signo)
     {
         // when the flag is 0, foreground-only mode will be exited
         TSTP_flag = 0;
-        char *newLine = "\n";
         char *message = "Exiting foreground-only mode\n";
-        char *prompt = ": ";
-        write(STDOUT_FILENO, newLine, 1);
         write(STDOUT_FILENO, message, 29);
-        write(STDOUT_FILENO, prompt, 2);
     }
     // set flag to 1 if flag is 0 and output a message
     else
     {
         // when the flag is 1, foreground-only mode will be activated
         TSTP_flag = 1;
-        char *newLine = "\n";
         char *message = "Entering foreground-only mode (& is now ignored)\n";
-        char *prompt = ": ";
-        write(STDOUT_FILENO, newLine, 1);
         write(STDOUT_FILENO, message, 49);
-        write(STDOUT_FILENO, prompt, 2);
     }
 }
 
@@ -429,8 +421,15 @@ void checkBgProcesses(struct backgroundPID *bgList)
             // if the process terminated abnormally
             else if (actualPid == -1) 
             {
+                // get the signal error number
+                int errorCode = WTERMSIG(childExitStatus);
+                // handle WTERMSIG sometimes returning 123 when SIGTERM is invoked
+                if (errorCode == 123)
+                {
+                    errorCode = 15;
+                }
                 // print a message, and get the exit status
-                printf("background pid %d is done: terminated by signal %d\n", childPid, WTERMSIG(childExitStatus));
+                printf("background pid %d is done: terminated by signal %d\n", childPid, errorCode);
                 fflush(stdout);
                 // set the pid for the terminated process to -5 (meaning it is now terminated and will be
                 // ignored in future checks)
@@ -566,6 +565,7 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
                 // redirect output if the ">" symbol is found in the command
                 else
                 {
+                    printf("\n");
                     // redirect stdout to commandLine->outFile
                     redirectOutput(commandLine.inOutFile);
                 }
@@ -574,6 +574,7 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             // redirect output if another symbol is found in the command line
             if (strcmp(commandLine.out, ">") == 0)
             {
+                printf("\n");
                 redirectOutput(commandLine.outFile);
             }
 
@@ -583,8 +584,8 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             printf("%s: command not found\n", commandLine.command);
             // flush standard ouput
             fflush(stdout);
-            // exit and set status code to 2
-            exit(2);
+            // exit and set status code to 1
+            exit(1);
             break;
         }
 
@@ -630,8 +631,8 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             else 
             {
                 printf("background pid is %d\n", childPid);
+                printf("\n");
                 fflush(stdout);
-                waitpid(childPid, &childExitStatus, WNOHANG);
                 storeBgProcess(bgList, childPid);
                 break;
             }
@@ -780,8 +781,11 @@ void commandPrompt()
     // create a sigaction struct to use the default behavior of signals
     struct sigaction default_action = {{0}};
 
+    // set the function handler for SIGTSTP_action
     SIGTSTP_action.sa_handler = handle_SIGTSTP;
+    // add a mask to prevent other signals from interrupting the handler
     sigfillset(&SIGTSTP_action.sa_mask);
+    // add a flag to restart the interrupted system call
     SIGTSTP_action.sa_flags = SA_RESTART;
 
     ignore_action.sa_handler = SIG_IGN;
@@ -876,6 +880,7 @@ void commandPrompt()
         // ignore user input input if they provided empty input or a comment (starting with a #)
         else if ((strcmp(newCommand, "") == 0) || (newCommand[0] == '#')) 
         {
+            printf("\n");
             continue;
         }
 
@@ -883,12 +888,15 @@ void commandPrompt()
         else if (strcmp(newCommand, "cd") == 0)
         {
             homeDirectory();
+            printf("\n");
         }
 
         // call the changeDirectory() function if the user entered cd with arguments
         else if (strncmp(newCommand, "cd ", 3) == 0)
         {
             changeDirectory(newCommand);
+            printf("\n");
+
         }
         // print the status of the last temrminated foreground process if the user entered "status"
         // the last status is stored in the exitStatus struct
