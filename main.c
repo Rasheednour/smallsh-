@@ -662,23 +662,94 @@ void changeDirectory(char *path)
     // tokenize the provided filepath
     while (token != NULL)
     {
-        // modify $$ here
+        
+        if (strcmp(token, "$$") == 0)
+        {
+            // get the current pid (for smallsh)
+            int shellPID = getpid();
+            // create a string to store the process number
+            char strPID[6];
+            // convert the pid number to a string and store it in the char variable above
+            sprintf(strPID, "%d", shellPID);
 
-        // attempt to open the directory in the path
-        DIR* dir = opendir(token);
+            // attempt to open the directory in the path
+            DIR* dir = opendir(strPID);
 
-        // if opening is successful, change current directory
-        // to that directory
-        if (dir) {
-            closedir(dir);
-            chdir(token);
-            token = strtok_r(NULL, " /", &ptr);
+            // if opening is successful, change current directory
+            // to that directory
+            if (dir) {
+                closedir(dir);
+                chdir(strPID);
+                token = strtok_r(NULL, " /", &ptr);
+            }
+            // if opening is unsuccessful, print an error message and return
+            else
+            {   
+                printf("Directory not found\n");
+                break;
+            }
         }
-        // if opening is unsuccessful, print an error message and return
+        // if a "$$" symbol is found inside any path, expand it to the 
+        // pid of the current process (smallsh) and attach it to the string
+        // at the same location
+        else if(strstr(token, "$$"))
+        {
+            // create a new pointer and let it point to the current token
+            // which has the "$$" substring in it
+            char *newToken = token;
+            // create a new pointer for another strtok_r function
+            char *nptr;
+            // move the old token to the next word in the argument list
+            token = strtok_r(NULL, " ", &ptr);
+            // now tokenize the current token, and get the string part
+            // which doesn't have the "$$" in it and store this part in newStr
+            char *newStr = strtok_r(newToken, "$$", &nptr);
+            // create a char variable to store the combined string + pid
+            char finalStr[255];
+            // first copy the sliced string part to finalStr 
+            strcpy(finalStr, newStr);
+            // get the current pid (for smallsh), and convert it to a string
+            int shellPID = getpid();
+            char strPID[6];
+            sprintf(strPID, "%d", shellPID);
+            // add the stringified pid to the finalStr
+            strcat(finalStr, strPID);
+
+            // attempt to open the directory in the path
+            DIR* dir = opendir(finalStr);
+
+            // if opening is successful, change current directory
+            // to that directory
+            if (dir) {
+                closedir(dir);
+                chdir(finalStr);
+                token = strtok_r(NULL, " /", &ptr);
+            }
+            // if opening is unsuccessful, print an error message and return
+            else
+            {   
+                printf("Directory not found\n");
+                break;
+            }
+        }
         else
-        {   
-            printf("Directory not found\n");
-            break;
+        {
+            // attempt to open the directory in the path
+            DIR* dir = opendir(token);
+
+            // if opening is successful, change current directory
+            // to that directory
+            if (dir) {
+                closedir(dir);
+                chdir(token);
+                token = strtok_r(NULL, " /", &ptr);
+            }
+            // if opening is unsuccessful, print an error message and return
+            else
+            {   
+                printf("Directory not found\n");
+                break;
+            }
         }
     }
 }
@@ -837,13 +908,14 @@ void commandPrompt()
     // user is exiting
     // free the memory dynamically allocated for the exitStatus struct
     free(exitStatus);
-    // struct backgroundPID *tmp;
-    // while (bgList != NULL)
-    // {
-    //     tmp = bgList;
-    //     bgList = bgList->next;
-    //     free(tmp);
-    // }
+    struct backgroundPID *tmp;
+    // free the memory dynamically allocated for the bgList
+    while (bgList != NULL)
+    {
+        tmp = bgList;
+        bgList = bgList->next;
+        free(tmp);
+    }
 }
 
 //----------------------------------------------------------------------
