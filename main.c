@@ -1,3 +1,6 @@
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,6 +75,10 @@ void exitShell(struct backgroundPID *bgList)
     struct backgroundPID *tmp;
     while (bgList != NULL)
     {
+        if (bgList->pid != -5)
+        {
+            kill(bgList->pid, SIGKILL);
+        }
         tmp = bgList;
         bgList = bgList->next;
         free(tmp);
@@ -234,9 +241,9 @@ struct parsedCommand tokenizer(char *command)
 
 void checkBgProcesses(struct backgroundPID *bgList)
 {
-    if (bgList->pid != -5)
+    while (bgList != NULL)
     {
-        while (bgList != NULL)
+        if (bgList->pid != -5)
         {
             int childExitStatus = -5;
             pid_t childPid = bgList->pid;
@@ -254,9 +261,8 @@ void checkBgProcesses(struct backgroundPID *bgList)
                 fflush(stdout);
                 bgList->pid = -5;
             }
-            bgList = bgList->next;
-
         }
+        bgList = bgList->next;
     }
 }
 
@@ -442,6 +448,7 @@ void changeDirectory(char *path) // dont change directories if any of them is in
         }
         else
         {   
+            printf("Directory not found\n");
             break;
         }
     }
