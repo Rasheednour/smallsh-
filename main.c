@@ -10,11 +10,13 @@
 #include <fcntl.h>
 #include <signal.h>
 
-
+// terminate processes when exiting
 // FIX & SIGN AT END OF BUILT IN FUNCTIONS
 // FIX CD WHEN ONE OF THE FILES IN PATH DOES NOT EXIST
 // UPDATE white space stripper to remove extra spaces between command and arguments
 // IMPLEMENT A TOKENIZER TO RETURN A LIST OF COMMAND AND ITS ARGUMENTS along with & if exists
+
+static sig_atomic_t TSTP_flag = 0;
 
 struct backgroundPID
 {
@@ -39,16 +41,28 @@ struct parsedCommand
     char *outFile;
 };
 
-void handle_SIGINT(int signo)
-{
-    char *message = "Caught SIGINT, sleeping for 10 seconds\n";
-    write(STDOUT_FILENO, message, 39);
-    sleep(10);
-}
-
 void handle_SIGTSTP(int signo)
-{
-
+{   
+    if (TSTP_flag == 1)
+    {
+        TSTP_flag = 0;
+        char *newLine = "\n";
+        char *message = "Exiting foreground-only mode\n";
+        char *prompt = ": ";
+        write(STDOUT_FILENO, newLine, 1);
+        write(STDOUT_FILENO, message, 29);
+        write(STDOUT_FILENO, prompt, 2);
+    }
+    else
+    {
+        TSTP_flag = 1;
+        char *newLine = "\n";
+        char *message = "Entering foreground-only mode (& is now ignored)\n";
+        char *prompt = ": ";
+        write(STDOUT_FILENO, newLine, 1);
+        write(STDOUT_FILENO, message, 49);
+        write(STDOUT_FILENO, prompt, 2);
+    }
 }
 
 void exitShell(struct backgroundPID *bgList)
@@ -283,7 +297,7 @@ void redirectOutput(char *fileName)
 }
 
 
-void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList, struct sigaction ignore_action)
+void executeCommand(char *command, int execMode, struct statusCode *exitStatus, struct backgroundPID *bgList, struct sigaction ignore_action, struct sigaction default_action)
 {
     // printf("parent PID is: %d\n", getpid());
     // printf("backgorund process number: %d\n", bgList->pid);
@@ -319,9 +333,10 @@ void executeCommand(char *command, int execMode, struct statusCode *exitStatus, 
             // add signal handler here
             if (execMode == 0)
             {
-                ignore_action.sa_handler = SIG_DFL;
-                sigaction(SIGINT, &ignore_action, NULL);
+                sigaction(SIGINT, &default_action, NULL);
             }
+
+            sigaction(SIGTSTP, &ignore_action, NULL);
             
             if (strcmp(commandLine.inOut, "-") != 0)
             {
@@ -438,16 +453,19 @@ void commandPrompt()
 {
 
 //----------------------Implement a signal handler for SIGINT--------------
-    struct sigaction SIGINT_action = {{0}};
+    struct sigaction SIGTSTP_action = {{0}};
     struct sigaction ignore_action = {{0}};
+    struct sigaction default_action = {{0}};
 
-    SIGINT_action.sa_handler = handle_SIGINT;
-    sigfillset(&SIGINT_action.sa_mask);
-    SIGINT_action.sa_flags = 0;
+    SIGTSTP_action.sa_handler = handle_SIGTSTP;
+    sigfillset(&SIGTSTP_action.sa_mask);
+    SIGTSTP_action.sa_flags = SA_RESTART;
 
     ignore_action.sa_handler = SIG_IGN;
+    default_action.sa_handler = SIG_DFL;
 
     sigaction(SIGINT, &ignore_action, NULL);
+    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
 
 //----------------------Initiate struct to track execution status--------------
 
@@ -481,10 +499,9 @@ void commandPrompt()
 
         // background processes must be checked here before user is handed control
         checkBgProcesses(bgList);
-        fflush(stdout);
-
         char command[2048];
         printf(": ");
+        fflush(stdout);
         // get user input
         fgets(command, 2048, stdin);
         // remove new line at the end of user input
@@ -508,7 +525,11 @@ void commandPrompt()
             {
                 // remove the & from string as we don't need it anymore
                 newCommand[strlen(newCommand) - 2] = '\0';
-                execMode = 1;
+                if (TSTP_flag != 1)
+                {
+                    execMode = 1;
+                }
+                
             }
             else
             {
@@ -544,7 +565,7 @@ void commandPrompt()
 
         else
         {
-            executeCommand(newCommand, execMode, exitStatus, bgList, ignore_action);
+            executeCommand(newCommand, execMode, exitStatus, bgList, ignore_action, default_action);
         }
         
     }
