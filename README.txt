@@ -1,5 +1,9 @@
-A shell program written in C that provides a prompt for running shell commands, handle blank lines and comment lines (begining with #), and provide expansion for the variable $$.
-The program has three built in functions which handle the cd, exit, and status command internally, and will use the exec family functions to handle all other shell commands entered by the user. The program supports input and output redirection (using < and >) and support running commands in foreground and background processes. The program also implements custom signal handlers for 2 signals, SIGINT, and SIGTSTP.
+A shell program written in C that provides a prompt for running shell commands, 
+handle blank lines and comment lines (begining with #), and provide expansion for the variable $$.
+The program has three built in functions which handle the cd, exit, and status command internally, 
+and will use the exec family functions to handle all other shell commands entered by the user. 
+The program supports input and output redirection (using < and >) and support running commands in
+foreground and background processes. The program also implements custom signal handlers for 2 signals, SIGINT, and SIGTSTP.
 
 ----------------------------------------------------------------------------------
 
